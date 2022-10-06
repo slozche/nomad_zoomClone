@@ -8,7 +8,7 @@ app.set("view engine", "pug");
 app.set("views", __dirname + "/public/views");
 app.use("/public", express.static(__dirname + "/public"));
 app.get("/", (_, res) => res.render("home"));
-app.get("/*", (_, res) => res.redirect("/"));
+// app.get("/*", (_, res) => res.redirect("/"));
 
 const handleListen = () => console.log('Listening on http://localhost:3000');
 
@@ -19,10 +19,17 @@ io.on("connection", (socket) => {
     socket.onAny((event) => {
         console.log(`Socket Event:${event}`);
     });
-    socket.on("enter_room", (roomname, done) => {
-        socket.join(roomname);
-        
+    socket.on("enter_room", (roomName, done) => {
+        socket.join(roomName);
         done();
+        socket.to(roomName).emit("welcome");
+    });
+    socket.on("new_message", (msg, room, done) => {
+        socket.to(room).emit("new_message", msg);
+        done();
+    })
+    socket.on("disconnecting", () => {
+        socket.rooms.forEach(room => socket.to(room).emit("bye"));
     });
 })
 
