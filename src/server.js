@@ -16,4 +16,15 @@ const handleListen = () => console.log("Listening on http://localhost:3000");
 const httpServer = http.createServer(app);
 const io = new Server(httpServer);
 
+io.on("connection", (socket) => {
+  socket.onAny((event) => {
+    console.log(`Socket Event: ${event}`);
+  });
+  socket.on("join_room", (roomName, done) => {
+    socket.join(roomName);
+    done();
+    socket.to(roomName).emit("welcome");
+  });
+});
+
 httpServer.listen(3000, handleListen);
