@@ -20,10 +20,15 @@ io.on("connection", (socket) => {
   socket.onAny((event) => {
     console.log(`Socket Event: ${event}`);
   });
+
   socket.on("join_room", (roomName, done) => {
     socket.join(roomName);
     done();
     socket.to(roomName).emit("welcome");
+  });
+
+  socket.on("offer", (offer, roomName) => {
+    socket.to(roomName).emit("offer", offer);
   });
 });
 
