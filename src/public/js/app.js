@@ -13,6 +13,7 @@ let muted = false;
 let cameraOff = false;
 let roomName;
 let myPeerConnection;
+let myDataChannel;
 
 const getCameras = async () => {
   try {
@@ -122,41 +123,44 @@ welcomeForm.addEventListener("submit", handleWelcomeSubmit);
 // Socket Code
 
 socket.on("welcome", async () => {
+  myDataChannel = myPeerConnection.createDataChannel("chat");
+  myDataChannel.addEventListener("open", (data) => {
+    addMessageEventListener();
+  });
   const offer = await myPeerConnection.createOffer();
   myPeerConnection.setLocalDescription(offer);
-  console.log("sent the offer");
+  console.log("sent offer");
   socket.emit("offer", offer, roomName);
 });
 
 socket.on("offer", async (offer) => {
-  console.log("receive the offer");
+  myPeerConnection.addEventListener("datachannel", (event) => {
+    myDataChannel = event.channel;
+    addMessageEventListener();
+  });
+  console.log("receive offer");
   myPeerConnection.setRemoteDescription(offer);
   const answer = await myPeerConnection.createAnswer();
   myPeerConnection.setLocalDescription(answer);
+  console.log("sent answer");
   socket.emit("answer", answer, roomName);
-  console.log("sent the answer");
 });
 
 socket.on("answer", (answer) => {
-  console.log("receive the answer");
+  console.log("receive answer");
   myPeerConnection.setRemoteDescription(answer);
 });
 
 socket.on("ice", (ice) => {
-  console.log("receive candidate");
+  console.log("receive ice");
   myPeerConnection.addIceCandidate(ice);
 });
 
 // RTC Code
 
-const makeConnection = () => {
-  myPeerConnection = new RTCPeerConnection();
-  myPeerConnection.addEventListener("icecandidate", handleIce);
-  myPeerConnection.addEventListener("addstream", handleAddStream);
-  myStream
-    .getTracks()
-    .forEach((track) => myPeerConnection.addTrack(track, myStream));
-};
+const message = document.getElementById("message");
+
+message.hidden = true;
 
 const handleIce = (data) => {
   console.log("sent candidate");
@@ -166,4 +170,50 @@ const handleIce = (data) => {
 const handleAddStream = (data) => {
   const peersFace = document.getElementById("peersFace");
   peersFace.srcObject = data.stream;
+};
+
+const mackConnection = () => {
+  myPeerConnection = new RTCPeerConnection({
+    iceServers: [
+      {
+        urls: [
+          "stun:stun.l.google.com:19302",
+          "stun:stun1.l.google.com:19302",
+          "stun:stun2.l.google.com:19302",
+          "stun:stun3.l.google.com:19302",
+          "stun:stun4.l.google.com:19302",
+        ],
+      },
+    ],
+  });
+  myPeerConnection.addEventListener("icecandidate", handleIce);
+  myPeerConnection.addEventListener("addstream", handleAddStream);
+  myStream
+    .getTracks()
+    .forEach((track) => myPeerConnection.addTrack(track, myStream));
+};
+
+const addMessage = (msg) => {
+  const MessageList = message.querySelector("ul");
+  const li = document.createElement("li");
+  li.innerText = msg;
+  MessageList.append(li);
+};
+
+const handleMessgeSubmit = (event) => {
+  event.preventDefault();
+  const input = message.querySelector("input");
+  myDataChannel.send(input.value);
+  addMessage(`You: ${input.value}`);
+  input.value = "";
+};
+
+const addMessageEventListener = () => {
+  message.hidden = false;
+  const messageForm = message.querySelector("form");
+  messageForm.addEventListener("submit", handleMessgeSubmit);
+  myDataChannel.addEventListener("message", (event) => {
+    const msg = event.data;
+    addMessage(msg);
+  });
 };
